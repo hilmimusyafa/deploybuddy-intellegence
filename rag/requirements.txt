@@ -1,0 +1,17 @@
+# DeployBuddy RAG — Python Dependencies
+# Install: pip install -r requirements.txt
+
+# RAG / ML
+scikit-learn>=1.3.0
+numpy>=1.24.0
+
+# HTTP client (untuk LLM API calls)
+requests>=2.31.0
+
+# Environment variable loader
+python-dotenv>=1.0.0
+
+# Optional: pakai sentence-transformers + faiss untuk embedding-based RAG
+# (lebih akurat tapi lebih berat — uncomment jika dibutuhkan)
+# sentence-transformers>=2.2.0
+# faiss-cpu>=1.7.4
