@@ -2,6 +2,8 @@ pandas
 chromadb
 sentence-transformers
 python-dotenv
+fastapi
+uvicorn
 groq
 google-generativeai
 openai

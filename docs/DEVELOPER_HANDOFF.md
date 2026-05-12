@@ -63,6 +63,12 @@ Yang sudah tersedia:
     - `recommendation.json`
     - `deployment_package.md`
 
+- `api.py`
+  - FastAPI wrapper untuk integrasi website.
+  - Mengikuti pola endpoint dari `polaBE.md`: conversation, token, dan `POST /deploy`.
+  - Token disimpan in-memory untuk MVP dan value selalu dimasking saat response.
+  - `POST /deploy` menjalankan pipeline analyzer -> RAG-1 -> RAG-2 dan mengembalikan raw output plus `ui_recommendation` untuk frontend.
+
 Yang belum tersedia:
 
 - API backend untuk website.
@@ -76,6 +82,7 @@ Yang belum tersedia:
 
 ```text
 .
+|-- api.py                        # FastAPI backend wrapper untuk website
 |-- deploybuddy.py                # CLI MVP utama
 |-- repository_analyzer.py        # Deteksi repo dan snippet aman
 |-- rag_1.py                      # RAG rekomendasi arsitektur
@@ -262,15 +269,21 @@ Expected result:
 
 Core logic sudah siap dipanggil website, tetapi perlu API wrapper. Rekomendasi langkah:
 
-### 8.1 Tambahkan Backend API
+### 8.1 Backend API
 
-Buat `api.py` atau modul backend di service yang sudah ada.
+`api.py` sudah tersedia sebagai wrapper awal. Jalankan:
+
+```powershell
+python -m uvicorn api:app --host 127.0.0.1 --port 8000 --reload
+```
 
 Endpoint minimal:
 
 ```text
 POST /analyze
 ```
+
+Catatan: implementasi saat ini memakai `POST /deploy` sesuai `polaBE.md`. Jika frontend lama masih mencari `/analyze`, buat alias route yang memanggil handler `/deploy` yang sama.
 
 Request:
 

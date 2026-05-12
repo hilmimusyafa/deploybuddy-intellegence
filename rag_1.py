@@ -156,7 +156,7 @@ OUTPUT A VALID JSON OBJECT with these keys:
 Ensure the JSON is valid without any additional text before or after."""
 
         # --- 4. Panggil LLM ---
-        response_text = self.llm.generate(prompt, max_tokens=1600)
+        response_text = self.llm.generate(prompt, max_tokens=800)
 
         # --- 5. Parse dan validasi output ---
         plan = self._parse_plan(response_text)
@@ -342,7 +342,7 @@ Move database/BaaS providers to supporting_services when appropriate.
 Do not include hidden reasoning, chain-of-thought, markdown fences, or <think> tags.
 Do not add any explanation outside JSON."""
 
-        repaired_text = self.llm.generate(repair_prompt, max_tokens=1600)
+        repaired_text = self.llm.generate(repair_prompt, max_tokens=800)
         repaired_plan = self._parse_plan(repaired_text)
         self._normalize_provider_fields(repaired_plan)
         repaired_validation = self._validate_provider(repaired_plan, primary_workload, eligible_providers)
@@ -359,14 +359,13 @@ Do not add any explanation outside JSON."""
             self._drop_debug_fields(repaired_plan)
             return repaired_plan
 
-        return {
-            "error": "Provider rejected by anti-hallucination guardrail",
-            "invalid_provider": repaired_validation.get("provider"),
-            "primary_workload": primary_workload,
-            "eligible_providers": [row["provider"] for row in eligible_providers],
-            "guardrail": repaired_validation,
-            "raw_output": repaired_plan,
-        }
+        return self._fallback_plan(
+            primary_workload=primary_workload,
+            eligible_providers=eligible_providers,
+            tech_stack=tech_stack,
+            user_prefs=user_prefs,
+            failed_validation=repaired_validation,
+        )
 
     def _ensure_prd_fields(self, plan: dict, tech_stack: dict, user_prefs: dict | None = None) -> None:
         if not isinstance(plan, dict):
@@ -428,6 +427,72 @@ Do not add any explanation outside JSON."""
         if recommendation.get("deployment_notes") and not plan.get("risk_notes"):
             plan["risk_notes"] = recommendation["deployment_notes"]
 
+    def _fallback_plan(
+        self,
+        primary_workload: str,
+        eligible_providers: list[dict],
+        tech_stack: dict,
+        user_prefs: dict,
+        failed_validation: dict,
+    ) -> dict:
+        selected = eligible_providers[0] if eligible_providers else {
+            "provider": "Unknown",
+            "category": "unknown",
+            "deploy_target": "unknown",
+        }
+        region = (user_prefs.get("target_regions") or ["not specified"])[0]
+        provider = selected["provider"]
+        plan = {
+            "architecture_diagram": "flowchart TD\n  User-->App\n  App-->Provider",
+            "detected_repository_profile": {
+                "language": tech_stack.get("language", "Not detected"),
+                "framework": tech_stack.get("framework", "Not detected"),
+                "database": tech_stack.get("database", "Not detected"),
+                "type": tech_stack.get("type", "Unknown"),
+                "architecture_hints": tech_stack.get("architecture_hints", []),
+            },
+            "provider": provider,
+            "provider_category": selected["category"],
+            "service_model": selected.get("deploy_target", "Container"),
+            "region": region,
+            "resource_spec": {"cpu": "unknown", "ram_gb": "unknown", "storage_gb": "unknown", "gpu": "unknown"},
+            "estimated_monthly_cost_usd": 0,
+            "provider_comparison_matrix": [
+                {
+                    "provider": row["provider"],
+                    "category": row["category"],
+                    "estimated_monthly_cost_usd": 0,
+                    "maintenance_effort": "medium",
+                    "scalability": "medium",
+                    "fit_reason": f"Eligible {row['category']} provider for {primary_workload} workload.",
+                    "tradeoff": "Fallback generated because LLM output was incomplete.",
+                }
+                for row in eligible_providers[:3]
+            ],
+            "supporting_services": [],
+            "guide": "Review the detected repository profile, configure required environment variables, generate deployment files, then run a dry-run deploy before production.",
+            "deployment_plan": {
+                "provider": provider,
+                "provider_category": selected["category"],
+                "region": region,
+                "service_model": selected.get("deploy_target", "Container"),
+                "notes": "Deterministic fallback plan because LLM output did not satisfy the internal schema.",
+            },
+            "risk_notes": f"Fallback plan used because RAG-1 schema validation failed: {failed_validation.get('reason', 'unknown reason')}",
+            "confidence": "low",
+            "guardrail": {
+                "is_valid": True,
+                "reason": "Deterministic fallback selected an eligible primary provider.",
+                "provider": provider,
+                "provider_category": selected["category"],
+                "primary_workload": primary_workload,
+                "fallback": True,
+                "previous_error": failed_validation,
+            },
+        }
+        self._ensure_prd_fields(plan, tech_stack, user_prefs)
+        return plan
+
     def _validate_provider(self, plan: dict, primary_workload: str, eligible_providers: list[dict]) -> dict:
         provider = plan.get("provider")
         eligible_by_name = {
@@ -468,7 +533,7 @@ Do not add any explanation outside JSON."""
         plan.pop("raw_output", None)
         plan.pop("error", None)
 
-    def _limit_context(self, context: str, max_chars: int = 8000) -> str:
+    def _limit_context(self, context: str, max_chars: int = 650) -> str:
         if len(context) <= max_chars:
             return context
         return context[:max_chars] + "\n[Context truncated for token budget]"

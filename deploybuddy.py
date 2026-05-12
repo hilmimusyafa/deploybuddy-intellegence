@@ -31,7 +31,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _profile_to_tech_stack(profile: RepositoryProfile) -> Dict[str, Any]:
-    snippets_data = [f"File: {snippet.path}\n{snippet.content}" for snippet in profile.snippets]
+    snippets_data = [f"File: {snippet.path}\n{snippet.content[:700]}" for snippet in profile.snippets]
     return {
         "language": ", ".join(profile.runtimes) if profile.runtimes else "Not detected",
         "framework": ", ".join(profile.detected_stack) if profile.detected_stack else "Not detected",
@@ -39,7 +39,7 @@ def _profile_to_tech_stack(profile: RepositoryProfile) -> Dict[str, Any]:
         "type": ", ".join(profile.service_types) if profile.service_types else "Unknown",
         "env_vars_detected": profile.env_vars_detected,
         "architecture_hints": profile.architecture_hints,
-        "repository_context": profile.to_context(max_chars=12000),
+        "repository_context": profile.to_context(max_chars=1000),
         "sample_code_snippets": snippets_data,
     }
 

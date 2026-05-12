@@ -164,6 +164,33 @@ Output disimpan ke folder `output/`:
 `main.py` dan `test_pipeline.py` tetap tersedia sebagai script demo/legacy, tetapi
 flow utama MVP sekarang memakai `deploybuddy.py`.
 
+## Menjalankan Backend API
+
+Backend API mengikuti pola dasar di `polaBE.md` untuk conversation, token, dan
+auto-deploy preview/generation.
+
+```powershell
+python -m uvicorn api:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Endpoint utama:
+
+- `GET /`: list conversation.
+- `GET /conversation/{id}`: detail conversation.
+- `POST /conversation`: buat conversation.
+- `DELETE /conversation/{id}`: hapus conversation.
+- `GET /token`: list token dengan value termasking.
+- `POST /token/{id}`: tambah token.
+- `PUT /token/{id}`: update token.
+- `DELETE /token/{id}`: hapus token.
+- `POST /deploy`: repository analyzer -> RAG-1 -> RAG-2.
+
+Frontend bisa memakai:
+
+```env
+VITE_DEPLOYBUDDY_API_URL=http://localhost:8000
+```
+
 ## Menjalankan Pipeline Analisis Repository
 
 Beberapa file test disiapkan untuk membaca repository lokal atau GitHub sebelum
