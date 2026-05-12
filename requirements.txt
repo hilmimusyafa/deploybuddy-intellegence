@@ -1,0 +1,9 @@
+pandas
+chromadb
+sentence-transformers
+python-dotenv
+groq
+google-generativeai
+openai
+requests
+supabase

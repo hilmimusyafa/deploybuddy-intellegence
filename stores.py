@@ -1,10 +1,39 @@
+import os
+from pathlib import Path
+
 import pandas as pd
 import chromadb
 from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def _safe_metadata(value):
+    if pd.isna(value):
+        return ""
+    return str(value)
+
+def _resolve_csv_path(env_name, default_name):
+    configured = os.getenv(env_name, "").strip()
+    candidates = []
+    if configured:
+        candidates.append(Path(configured))
+    candidates.append(Path(default_name))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    tried = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(f"CSV untuk {env_name} tidak ditemukan. Coba path: {tried}")
+
 
 # ==================== LOAD CSV ====================
-df_pricing = pd.read_csv("provider_pricing_curated.csv")
-df_deploy  = pd.read_csv("provider_deploy_api.csv")
+pricing_csv_path = _resolve_csv_path("PRICING_CSV_PATH", "provider_pricing_curated.csv")
+deploy_csv_path = _resolve_csv_path("DEPLOY_API_CSV_PATH", "provider_deploy_api.csv")
+
+df_pricing = pd.read_csv(pricing_csv_path)
+df_deploy  = pd.read_csv(deploy_csv_path)
 
 # Buat dokumen teks dari tiap baris
 def pricing_row_to_doc(row):
@@ -29,6 +58,26 @@ def deploy_row_to_doc(row):
 docs_pricing = [pricing_row_to_doc(row) for _, row in df_pricing.iterrows()]
 docs_deploy  = [deploy_row_to_doc(row) for _, row in df_deploy.iterrows()]
 
+metas_pricing = [
+    {
+        "provider": _safe_metadata(row["provider"]),
+        "category": _safe_metadata(row["category"]),
+        "service_type": _safe_metadata(row["service_type"]),
+        "region_code": _safe_metadata(row["region_code"]),
+        "region_name": _safe_metadata(row["region_name"]),
+    }
+    for _, row in df_pricing.iterrows()
+]
+
+metas_deploy = [
+    {
+        "provider": _safe_metadata(row["provider"]),
+        "category": _safe_metadata(row["category"]),
+        "deploy_target": _safe_metadata(row["deploy_target"]),
+    }
+    for _, row in df_deploy.iterrows()
+]
+
 # ==================== SETUP VECTOR STORE ====================
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
@@ -50,15 +99,17 @@ collection_deploy = client.get_or_create_collection(
 batch_size = 200
 for i in range(0, len(docs_pricing), batch_size):
     batch = docs_pricing[i:i+batch_size]
-    collection_pricing.add(
+    collection_pricing.upsert(
         documents=batch,
+        metadatas=metas_pricing[i:i+len(batch)],
         ids=[str(j) for j in range(i, i+len(batch))]
     )
 
 for i in range(0, len(docs_deploy), batch_size):
     batch = docs_deploy[i:i+batch_size]
-    collection_deploy.add(
+    collection_deploy.upsert(
         documents=batch,
+        metadatas=metas_deploy[i:i+len(batch)],
         ids=[f"d{j}" for j in range(i, i+len(batch))]
     )
 

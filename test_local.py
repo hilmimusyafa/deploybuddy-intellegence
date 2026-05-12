@@ -1,19 +1,15 @@
-import sys
 import os
 import json
 import argparse
 
-# Tambahkan path aplikasi utama agar bisa import repository_analyzer
-sys.path.append(os.path.abspath("../Refactory Hackathon x Telkom University/deploybuddy-intellegence"))
-
-from llm_client import get_llm_client
+from llm_client import get_llm_client_from_env
 from rag_1 import ArchitectureRAG
 from stores import collection_pricing, collection_deploy
 from repository_analyzer import analyze_repository, RepositoryAnalysisError
 
 def main():
     parser = argparse.ArgumentParser(description="DeployBuddy RAG Test with Local Directory")
-    parser.add_argument("--repo-path", type=str, default="../Refactory Hackathon x Telkom University/deploybuddy-intellegence", help="Path direktori kode lokal")
+    parser.add_argument("--repo-path", type=str, default=".", help="Path direktori kode lokal")
     parser.add_argument("--max-snippets", type=int, default=2, help="Batas maksimal code snippet (cegah Payload Too Large)")
     parser.add_argument("--budget", type=int, default=30, help="Budget target USD")
     args = parser.parse_args()
@@ -55,21 +51,22 @@ def main():
     from dotenv import load_dotenv
     load_dotenv()
     
-    BACKEND = os.getenv("LLM_BACKEND", "groq")
-
-    if BACKEND == "groq":
-        llm = get_llm_client("groq", api_key=os.getenv("GROQ_API_KEY"), model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"))
-    elif BACKEND == "google":
-        llm = get_llm_client("google", api_key=os.getenv("GOOGLE_API_KEY"), model=os.getenv("GOOGLE_MODEL", "gemini-1.5-flash"))
-    elif BACKEND == "local":
-        llm = get_llm_client("local", base_url=os.getenv("LOCAL_BASE_URL", "http://localhost:11434/v1"), model=os.getenv("LOCAL_MODEL", "llama3.1:8b"))
-    else:
-        raise ValueError("Backend tidak dikenal")
+    try:
+        backend, llm = get_llm_client_from_env()
+    except Exception as e:
+        print(f"\n[ERROR] Gagal menginisialisasi LLM: {e}")
+        print("[INFO] Isi API key di .env atau jalankan: $env:LLM_BACKEND='mock'")
+        return
 
     rag1 = ArchitectureRAG(collection_pricing, collection_deploy, llm)
 
     print("\n[STEP 2] Meminta rekomendasi arsitektur ke AI...")
-    plan = rag1.recommend(tech_stack, user_prefs)
+    try:
+        plan = rag1.recommend(tech_stack, user_prefs)
+    except Exception as e:
+        print(f"\n[ERROR] Gagal memanggil LLM backend '{backend}': {e}")
+        print("[INFO] Periksa API key, model/limit token, atau gunakan LLM_BACKEND=mock untuk test offline.")
+        return
 
     print("\n=== Hasil Rekomendasi Arsitektur ===")
     print(json.dumps(plan, indent=2, ensure_ascii=False))

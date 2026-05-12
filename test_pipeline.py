@@ -1,12 +1,8 @@
-import sys
 import os
 import json
 import argparse
 
-# Tambahkan path aplikasi utama agar bisa import repository_analyzer
-sys.path.append(os.path.abspath("../Refactory Hackathon x Telkom University/deploybuddy-intellegence"))
-
-from llm_client import get_llm_client
+from llm_client import get_llm_client_from_env
 from rag_1 import ArchitectureRAG
 from rag_2 import DeploymentCodeRAG
 from stores import collection_pricing, collection_deploy
@@ -65,22 +61,23 @@ def main():
     from dotenv import load_dotenv
     load_dotenv()
     
-    BACKEND = os.getenv("LLM_BACKEND", "groq")
-
-    if BACKEND == "groq":
-        llm = get_llm_client("groq", api_key=os.getenv("GROQ_API_KEY"), model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"))
-    elif BACKEND == "google":
-        llm = get_llm_client("google", api_key=os.getenv("GOOGLE_API_KEY"), model=os.getenv("GOOGLE_MODEL", "gemini-1.5-flash"))
-    elif BACKEND == "local":
-        llm = get_llm_client("local", base_url=os.getenv("LOCAL_BASE_URL", "http://localhost:11434/v1"), model=os.getenv("LOCAL_MODEL", "llama3.1:8b"))
-    else:
-        raise ValueError("Backend tidak dikenal")
+    try:
+        backend, llm = get_llm_client_from_env()
+    except Exception as e:
+        print(f"\n[ERROR] Gagal menginisialisasi LLM: {e}")
+        print("[INFO] Isi API key di .env atau jalankan: $env:LLM_BACKEND='mock'")
+        return
 
     rag1 = ArchitectureRAG(collection_pricing, collection_deploy, llm)
     rag2 = DeploymentCodeRAG(collection_deploy, llm)
 
     print("\n[STEP 1] Meminta rekomendasi arsitektur ke AI (RAG-1)...")
-    plan = rag1.recommend(tech_stack, user_prefs)
+    try:
+        plan = rag1.recommend(tech_stack, user_prefs)
+    except Exception as e:
+        print(f"\n[ERROR] Gagal memanggil LLM backend '{backend}' di RAG-1: {e}")
+        print("[INFO] Periksa API key, model/limit token, atau gunakan LLM_BACKEND=mock untuk test offline.")
+        return
 
     print("\n=== Hasil Rekomendasi Arsitektur ===")
     print(json.dumps(plan, indent=2, ensure_ascii=False))
@@ -91,15 +88,20 @@ def main():
         deployment_plan = plan["deployment_plan"]
         
         print(f"\n[STEP 2] Meminta pembuatan kode deploy (RAG-2) untuk provider {provider}...")
-        deploy_code = rag2.generate_code(deployment_plan, provider)
+        try:
+            deploy_code = rag2.generate_code(deployment_plan, provider)
+        except Exception as e:
+            print(f"\n[ERROR] Gagal memanggil LLM backend '{backend}' di RAG-2: {e}")
+            print("[INFO] Periksa API key, model/limit token, atau gunakan LLM_BACKEND=mock untuk test offline.")
+            return
         
-        print("\n=== Kode Deploy / Script Deployment ===")
+        print("\n=== Draft Deployment Package ===")
         print(deploy_code)
 
         # Output kode opsional bisa disimpan ke file
-        with open("deploy_script_result.py", "w") as f:
+        with open("deployment_package.md", "w", encoding="utf-8") as f:
             f.write(deploy_code)
-            print("\n[INFO] Kode deploy berhasil disimpan di 'deploy_script_result.py'.")
+            print("\n[INFO] Draft deployment package berhasil disimpan di 'deployment_package.md'.")
     else:
         print("\n[INFO] Tidak dapat melanjutkan ke RAG-2 karena RAG-1 tidak menghasilkan list 'provider' atau 'deployment_plan' yang valid.")
 
