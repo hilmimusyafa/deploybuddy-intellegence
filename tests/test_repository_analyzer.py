@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 
 from repository_analyzer import analyze_repository
+from deploybuddy import _resolve_service_type
+from rag_1 import ArchitectureRAG
 
 
 class RepositoryAnalyzerTests(unittest.TestCase):
@@ -62,6 +64,26 @@ class RepositoryAnalyzerTests(unittest.TestCase):
             self.assertIn("Skipped sensitive files", "\n".join(profile.warnings))
             self.assertNotIn("SECRET_KEY", context)
             self.assertNotIn("node_modules/ignored.js", context)
+
+    def test_service_type_alias_keeps_fullstack_from_becoming_ml(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "requirements.txt").write_text(
+                "fastapi==0.115.0\nchromadb\nsentence-transformers\n",
+                encoding="utf-8",
+            )
+
+            profile = analyze_repository(repo_path=str(root))
+            service_type = _resolve_service_type(profile, "Fullstack App")
+
+            self.assertEqual(service_type, "web_application")
+            self.assertEqual(
+                ArchitectureRAG(None, None, None)._infer_primary_workload(
+                    {"framework": "FastAPI, RAG/Vector Search", "type": ",".join(profile.service_types)},
+                    {"service_type": service_type},
+                ),
+                "web_application",
+            )
 
 
 if __name__ == "__main__":

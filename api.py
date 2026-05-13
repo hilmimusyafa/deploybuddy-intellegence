@@ -106,14 +106,15 @@ def _mask_secret(value: str) -> str:
 def _resource_text(resource_spec: Any) -> str:
     if not isinstance(resource_spec, dict):
         return "Unknown resources"
-    cpu = resource_spec.get("cpu", "unknown CPU")
+    cpu = str(resource_spec.get("cpu", "unknown CPU"))
     ram = resource_spec.get("ram_gb", "unknown RAM")
     storage = resource_spec.get("storage_gb", "unknown storage")
     gpu = resource_spec.get("gpu")
-    parts = [f"{cpu} CPU", f"{ram} GB RAM", f"{storage} GB storage"]
+    cpu_text = cpu if "cpu" in cpu.lower() else f"{cpu} CPU"
+    parts = [cpu_text, f"{ram} GB RAM", f"{storage} GB storage"]
     if gpu and str(gpu).lower() not in {"none", "unknown", "n/a"}:
         parts.append(f"{gpu} GPU")
-    return " · ".join(parts)
+    return " / ".join(parts)
 
 
 def _risk_level(recommendation: Dict[str, Any]) -> str:

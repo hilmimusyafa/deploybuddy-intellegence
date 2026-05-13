@@ -82,25 +82,96 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-CMD [\"python\", \"main.py\"]
+EXPOSE 8000
+CMD [\"uvicorn\", \"api:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]
+```
+
+## FILE: docker-compose.yml
+
+```yaml
+services:
+  deploybuddy-api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./chroma_db:/app/chroma_db
+```
+
+## FILE: .github/workflows/deploy.yml
+
+```yaml
+name: DeployBuddy deployment draft
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m py_compile *.py
+      - run: python -m unittest discover -s tests -v
 ```
 
 ## FILE: .env.example
 
 ```env
-LLM_BACKEND=groq
+LLM_PROVIDER=groq
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=llama-3.1-8b-instant
+RAG1_TOP_K=5
+RAG2_TOP_K=2
+CHROMA_DB_PATH=./chroma_db
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+## FILE: deploy.py
+
+```python
+\"\"\"Draft deploy helper.
+
+Do not run this as an auto-deploy script until provider credentials,
+project id, and target environment are reviewed by a human.
+\"\"\"
+
+import os
+
+
+def main():
+    token = os.getenv(\"RAILWAY_TOKEN\")
+    project_id = os.getenv(\"RAILWAY_PROJECT_ID\")
+    if not token or not project_id:
+        raise SystemExit(\"Set RAILWAY_TOKEN and RAILWAY_PROJECT_ID before deploying.\")
+    print(\"TODO: call Railway GraphQL/CLI deploy flow after user validates secrets.\")
+
+
+if __name__ == \"__main__\":
+    main()
 ```
 
 ## GUIDE
 
-Deploy the application to Modal.com or another Python-capable compute provider. Keep API keys in environment variables.
+1. Copy `.env.example` to `.env` and fill only local secrets.
+2. Run `docker compose up --build` and verify `/docs`.
+3. Create a Railway project/service and configure env vars in the provider dashboard.
+4. Deploy from GitHub or Railway CLI after reviewing generated files.
+5. Keep Supabase/Neon/Firebase as supporting data services only when explicitly needed.
 
 ## VERIFY
 
 ```powershell
-python main.py
+python -m py_compile *.py
+python -m unittest discover -s tests -v
+uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 """
 

@@ -15,9 +15,11 @@ def _safe_metadata(value):
 
 def _resolve_csv_path(env_name, default_name):
     configured = os.getenv(env_name, "").strip()
+    base_dir = Path(__file__).resolve().parent
     candidates = []
     if configured:
         candidates.append(Path(configured))
+    candidates.append(base_dir / default_name)
     candidates.append(Path(default_name))
 
     for candidate in candidates:
@@ -83,7 +85,8 @@ sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFuncti
     model_name="all-MiniLM-L6-v2"
 )
 
-client = chromadb.PersistentClient(path="./chroma_db")
+chroma_db_path = Path(os.getenv("CHROMA_DB_PATH", Path(__file__).resolve().parent / "chroma_db"))
+client = chromadb.PersistentClient(path=str(chroma_db_path))
 
 # Koleksi terpisah untuk pricing dan deploy
 collection_pricing = client.get_or_create_collection(

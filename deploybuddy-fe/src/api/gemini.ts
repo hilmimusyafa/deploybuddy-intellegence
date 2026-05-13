@@ -8,6 +8,30 @@ function normalizeRepoUrl(repo: string): string {
   return trimmed;
 }
 
+function normalizeServiceType(service: string): string {
+  const value = service
+    .trim()
+    .toLowerCase()
+    .replace(/[-\s]+/g, "_");
+  const aliases: Record<string, string> = {
+    fullstack: "web_application",
+    fullstack_app: "web_application",
+    full_stack: "web_application",
+    full_stack_app: "web_application",
+    web: "web_application",
+    web_app: "web_application",
+    frontend_app: "frontend",
+    static_site: "frontend",
+    api: "backend",
+    api_service: "backend",
+    backend_api: "backend",
+    backend_service: "backend",
+    ai_model: "model",
+    model_ai: "model",
+  };
+  return aliases[value] ?? value ?? "auto";
+}
+
 async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -45,7 +69,7 @@ export async function generateDeploymentAnalysis(
       budget: Number.parseInt(budget, 10) || 30,
       ccu: 200,
       region,
-      service_type: service || "auto",
+      service_type: normalizeServiceType(service || "auto"),
       max_snippets: 2,
       user_message: userRequest,
     }),

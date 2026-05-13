@@ -28,7 +28,14 @@ class DeploymentCodeRAG:
         except Exception:
             results = self.deploy_col.query(query_texts=[query], n_results=max(1, min(n_results, 3)))
 
-        deploy_context = "\n---\n".join(results['documents'][0])
+        documents = results.get("documents") or [[]]
+        deploy_docs = documents[0] if documents and documents[0] else []
+        deploy_context = "\n---\n".join(deploy_docs)
+        if not deploy_context.strip():
+            deploy_context = (
+                f"No deployment API context was retrieved for {provider}. "
+                "Generated files must stay generic and mark provider API calls as TODO."
+            )
 
         # --- 2. Prompt untuk menghasilkan paket draft deployment ---
         prompt = f"""You are a DevOps expert. I have a deployment plan for provider '{provider}':

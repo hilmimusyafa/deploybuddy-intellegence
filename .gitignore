@@ -1,2 +1,8 @@
 .env
 *.log
+__pycache__/
+*.py[cod]
+output/
+output_*/
+deploybuddy-fe/node_modules/
+deploybuddy-fe/dist/

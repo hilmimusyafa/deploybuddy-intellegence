@@ -45,8 +45,9 @@ def _profile_to_tech_stack(profile: RepositoryProfile) -> Dict[str, Any]:
 
 
 def _resolve_service_type(profile: RepositoryProfile, requested: str) -> str:
-    if requested and requested.lower() != "auto":
-        return requested
+    normalized_requested = _normalize_service_type(requested)
+    if normalized_requested != "auto":
+        return normalized_requested
     if not profile.service_types:
         return "web_application"
     service_types = set(profile.service_types)
@@ -59,6 +60,33 @@ def _resolve_service_type(profile: RepositoryProfile, requested: str) -> str:
     if "model" in service_types:
         return "model"
     return profile.service_types[0]
+
+
+def _normalize_service_type(value: str | None) -> str:
+    text = (value or "auto").strip().lower()
+    if not text or text == "auto":
+        return "auto"
+
+    normalized = text.replace("-", "_").replace(" ", "_")
+    aliases = {
+        "fullstack": "web_application",
+        "fullstack_app": "web_application",
+        "full_stack": "web_application",
+        "full_stack_app": "web_application",
+        "web_app": "web_application",
+        "web": "web_application",
+        "website": "frontend",
+        "frontend_app": "frontend",
+        "static_site": "frontend",
+        "api": "backend",
+        "api_service": "backend",
+        "backend_api": "backend",
+        "backend_service": "backend",
+        "model_ai": "model",
+        "ai_model": "model",
+        "machine_learning": "model",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def _build_user_prefs(args: argparse.Namespace, profile: RepositoryProfile) -> Dict[str, Any]:

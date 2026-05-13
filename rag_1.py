@@ -177,6 +177,24 @@ Ensure the JSON is valid without any additional text before or after."""
             return list(csv.DictReader(file))
 
     def _infer_primary_workload(self, tech_stack: dict, user_prefs: dict) -> str:
+        requested_service_type = str(user_prefs.get("service_type", "")).strip().lower()
+        requested_service_type = requested_service_type.replace("-", "_").replace(" ", "_")
+        explicit_service_map = {
+            "backend": "backend",
+            "api": "backend",
+            "frontend": "frontend",
+            "static_site": "frontend",
+            "web_application": "web_application",
+            "fullstack": "web_application",
+            "fullstack_app": "web_application",
+            "database": "database",
+            "model": "ml",
+            "ml": "ml",
+            "ai_model": "ml",
+        }
+        if requested_service_type in explicit_service_map:
+            return explicit_service_map[requested_service_type]
+
         text = " ".join(
             str(value)
             for value in [
@@ -209,10 +227,10 @@ Ensure the JSON is valid without any additional text before or after."""
 
         if any(term in text for term in ml_terms):
             return "ml"
-        if any(term in text for term in backend_terms):
-            return "backend"
         if any(term in text for term in fullstack_terms):
             return "web_application"
+        if any(term in text for term in backend_terms):
+            return "backend"
         if any(term in text for term in frontend_terms):
             return "frontend"
         if any(term in text for term in database_terms):
